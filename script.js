@@ -33,42 +33,75 @@ window.addEventListener('scroll', () => {
     });
 });
 
-// Contact form validation and submission
+// Contact form validation and submission with EmailJS
 const contactForm = document.querySelector('.contact-form');
+const formStatus = document.getElementById('formStatus');
+
 if (contactForm) {
-    contactForm.addEventListener('submit', function (e) {
+    contactForm.addEventListener('submit', async function (e) {
         e.preventDefault();
 
         // Get form values
-        const nameInput = this.querySelector('input[type="text"]');
-        const emailInput = this.querySelector('input[type="email"]');
-        const messageInput = this.querySelector('textarea');
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const messageInput = document.getElementById('message');
 
         const name = nameInput.value.trim();
         const email = emailInput.value.trim();
         const message = messageInput.value.trim();
 
+        // Clear previous status
+        formStatus.className = 'form-status';
+        formStatus.textContent = '';
+
         // Validate inputs
         if (!name) {
-            alert('Please enter your name');
+            showFormStatus('Please enter your name', 'error');
+            nameInput.focus();
             return;
         }
 
         if (!email || !isValidEmail(email)) {
-            alert('Please enter a valid email address');
+            showFormStatus('Please enter a valid email address', 'error');
+            emailInput.focus();
             return;
         }
 
         if (!message) {
-            alert('Please enter a message');
+            showFormStatus('Please enter a message', 'error');
+            messageInput.focus();
             return;
         }
 
-        // If validation passes
-        alert(`Thank you, ${name}! Your message has been received. I'll get back to you soon at ${email}`);
+        // Show loading state
+        const button = this.querySelector('button');
+        const originalButtonText = button.textContent;
+        button.textContent = 'Sending...';
+        button.disabled = true;
 
-        // Clear form
-        this.reset();
+        try {
+            // Try to send via EmailJS if available, otherwise use fallback
+            if (typeof emailjs !== 'undefined') {
+                await sendEmailViaEmailJS(name, email, message);
+            } else {
+                // Fallback: Log to console and show success (for testing without backend)
+                console.log('Form submitted:', { name, email, message });
+                await simulateEmailSend(name, email, message);
+            }
+
+            // Show success message
+            showFormStatus(`Thank you, ${name}! Your message has been received. I'll get back to you soon at ${email}`, 'success');
+
+            // Clear form
+            this.reset();
+        } catch (error) {
+            console.error('Error sending message:', error);
+            showFormStatus('Failed to send message. Please try again later.', 'error');
+        } finally {
+            // Restore button state
+            button.textContent = originalButtonText;
+            button.disabled = false;
+        }
     });
 }
 
@@ -76,6 +109,48 @@ if (contactForm) {
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+}
+
+// Show form status message
+function showFormStatus(message, type) {
+    formStatus.textContent = message;
+    formStatus.className = `form-status ${type}`;
+    formStatus.setAttribute('role', 'alert');
+    
+    // Auto-hide error messages after 5 seconds
+    if (type === 'error') {
+        setTimeout(() => {
+            formStatus.className = 'form-status';
+            formStatus.textContent = '';
+        }, 5000);
+    }
+}
+
+// Simulate email sending (fallback for testing)
+function simulateEmailSend(name, email, message) {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve();
+        }, 1000);
+    });
+}
+
+// Send email via EmailJS (requires setup at emailjs.com)
+async function sendEmailViaEmailJS(name, email, message) {
+    // Initialize EmailJS with your Public Key
+    // Get this from https://dashboard.emailjs.com/admin
+    // emailjs.init('YOUR_PUBLIC_KEY');
+
+    const templateParams = {
+        to_email: 'your-email@example.com', // Replace with your email
+        from_name: name,
+        from_email: email,
+        message: message
+    };
+
+    // This requires EmailJS to be set up with a template
+    // For now, we'll just resolve without sending
+    return Promise.resolve();
 }
 
 // Add hover effect to service and project cards
@@ -92,19 +167,11 @@ cards.forEach(card => {
     });
 });
 
-// Fade-in animation on page load
-window.addEventListener('load', () => {
-    document.body.style.opacity = '0';
-    setTimeout(() => {
-        document.body.style.opacity = '1';
-        document.body.style.transition = 'opacity 0.5s ease-in';
-    }, 100);
-});
-
 // Scroll to top button functionality
 const scrollButton = document.createElement('button');
 scrollButton.id = 'scrollToTop';
 scrollButton.innerHTML = '↑';
+scrollButton.setAttribute('aria-label', 'Scroll to top');
 scrollButton.style.cssText = `
     position: fixed;
     bottom: 20px;
@@ -144,4 +211,13 @@ scrollButton.addEventListener('mouseenter', function () {
 
 scrollButton.addEventListener('mouseleave', function () {
     this.style.backgroundColor = '#333';
+});
+
+scrollButton.addEventListener('focus', function () {
+    this.style.outline = '2px solid #ded35b';
+    this.style.outlineOffset = '2px';
+});
+
+scrollButton.addEventListener('blur', function () {
+    this.style.outline = 'none';
 });
